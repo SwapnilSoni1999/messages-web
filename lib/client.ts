@@ -14,9 +14,9 @@ class MessagesClient extends EventEmitter implements MessagesClient {
 
     private qrObserver: MutationObserver | undefined
 
-    constructor () {
+    constructor (headless=true) {
         super()
-        this.launch()
+        this.launch(headless)
         this.page?.on('request', request => {
             const url = request.url()
             if (url.includes('web/conversations')) {
@@ -70,6 +70,7 @@ class MessagesClient extends EventEmitter implements MessagesClient {
             return observer
         })
 
+        await this.page.waitForSelector('body > mw-app > mw-bootstrap > div > main > mw-authentication-container > div > div.content-container > div > div.qr-code-container > div.qr-code-wrapper > mw-qr-code > img')
         const img = await this.page.$('body > mw-app > mw-bootstrap > div > main > mw-authentication-container > div > div.content-container > div > div.qr-code-container > div.qr-code-wrapper > mw-qr-code > img')
         if (img) {
             const src = await img.getProperty('src')
@@ -90,6 +91,9 @@ class MessagesClient extends EventEmitter implements MessagesClient {
         return { cookies: cookiz, localStorage: localStorageData }
     }
 
+    async quit() {
+        await this.browser.close()
+    }
 }
 
 export default MessagesClient
