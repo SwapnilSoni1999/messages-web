@@ -2,26 +2,19 @@ import { EventEmitter } from 'events'
 import puppeteer from 'puppeteer'
 
 import MessageService from './service'
-
-type ClientEvents = 'browser-launched' | 'qr-code' | 'authenticated'
-
-interface MyClassEvents {
+interface ClientEvents {
     'authenticated': (service: MessageService) => void,
     'browser-launched': () => void,
     'qr-code': (base64Image: string) => void
 }
 declare interface MessagesClient {
-    on<U extends keyof MyClassEvents>(
-      event: U, listener: MyClassEvents[U]
-    ): this;
+    on<U extends keyof ClientEvents>(
+      event: U, listener: ClientEvents[U]
+    ): this,
   
-    emit<U extends keyof MyClassEvents>(
-      event: U, ...args: Parameters<MyClassEvents[U]>
-    ): boolean;
-
-    // removeListener<U extends keyof MyClassEvents>(
-    //     event: U
-    // )
+    emit<U extends keyof ClientEvents>(
+      event: U, ...args: Parameters<ClientEvents[U]>
+    ): boolean
   }
 
 class MessagesClient extends EventEmitter implements MessagesClient {
