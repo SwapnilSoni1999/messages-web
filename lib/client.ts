@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import puppeteer from 'puppeteer'
+import fs from 'fs'
 
 import MessageService from './service'
 interface ClientEvents {
@@ -33,6 +34,11 @@ class MessagesClient extends EventEmitter implements MessagesClient {
     constructor (options: ClientOptions = { headless: true, credentials: { cookies: [], localStorage: {} } }) {
         super()
         this.launch(options)
+    }
+
+    static loadCredentialFile(path: string): Credentials {
+        const credentials: Credentials = JSON.parse(fs.readFileSync(path).toString())
+        return credentials
     }
 
     private async launch (options: ClientOptions) {
@@ -122,7 +128,7 @@ class MessagesClient extends EventEmitter implements MessagesClient {
         return creds
     }
 
-    async setCredentials (credentials: Credentials) {
+    private async setCredentials (credentials: Credentials) {
         await this.page.setCookie(...credentials.cookies)
         await this.page.evaluate((localStorageData) => {
             try {
