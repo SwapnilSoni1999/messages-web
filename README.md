@@ -9,6 +9,9 @@ git clone https://github.com/SwapnilSoni1999/messages-web.git
 ```
 
 2. Use it
+
+- Without credentials
+
 ```js
 const MessagesClient = require('./messages-web')
 const fs = require('fs')
@@ -23,6 +26,24 @@ client.on('qr-code', (base64Image) => {
 
 client.on('authenticated', async (service) => {
     const inbox = service.getInbox()
+    const credentials = await client.getCredentials()
+    fs.writeFileSync('credentials.json', JSON.stringify(credentials, null, '\t'))
+    await client.quit()
+})
+```
+Then you can use `credentials.json` file to login 
+
+- With credentials
+
+```js
+const MessagesClient = require('./messages-web')
+
+const credentials = MessagesClient.loadCredentialFile('credentials.json')
+const client = new MessagesClient({ credentials })
+
+client.on('authenticated', async (service) => {
+    const inbox = await service.getInbox()
+    console.log('Inbox', inbox)
     await client.quit()
 })
 ```
