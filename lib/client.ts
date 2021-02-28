@@ -15,19 +15,29 @@ declare interface MessagesClient {
     emit<U extends keyof ClientEvents>(
       event: U, ...args: Parameters<ClientEvents[U]>
     ): boolean
-  }
+}
 
+type ClientOptions = {
+    headless?: boolean,
+    credentials?: Credentials
+}
+
+export type Credentials = {
+    cookies: puppeteer.Protocol.Network.CookieParam[],
+    localStorage: object
+}
 class MessagesClient extends EventEmitter implements MessagesClient {
-    page!: puppeteer.Page
-    browser!: puppeteer.Browser
+    private page!: puppeteer.Page
+    private browser!: puppeteer.Browser
 
-    constructor (headless=true) {
+    constructor (options: ClientOptions = { headless: true, credentials: { cookies: [], localStorage: {} } }) {
         super()
-        this.launch(headless)
+        this.launch(options)
     }
 
-    private async launch (headless=true) {
-        const browser = await puppeteer.launch({ headless: headless })
+    private async launch (options: ClientOptions) {
+        const browser = await puppeteer.launch({ headless: options.headless })
+        this.browser = browser
         const page = await browser.newPage()
         this.page = page
         await this.page.goto('https://messages.android.com', { waitUntil: 'load' })
@@ -37,7 +47,18 @@ class MessagesClient extends EventEmitter implements MessagesClient {
             checkbox.click() //remember me
         })
         this.emit('browser-launched')
-        this.attachQrReader()
+        if (!Object.keys(options.credentials.localStorage).length) {
+            this.attachQrReader()
+            this.attachReqTracer()
+            return
+        } else {
+            await this.setCredentials(options.credentials)
+            const service = new MessageService(this.page)
+            this.emit('authenticated', service)
+        }
+    }
+
+    private async attachReqTracer () {
         this.page.on('request', request => {
             const url = request.url()
             if (url.includes('Pairing/GetWebEncryptionKey')) {
@@ -45,7 +66,6 @@ class MessagesClient extends EventEmitter implements MessagesClient {
                 this.emit('authenticated', service) // todo: pass credentials as well
             }
         })
-        return
     }
 
     private async attachQrReader () {
@@ -87,14 +107,33 @@ class MessagesClient extends EventEmitter implements MessagesClient {
     }
     
     // WILL BE RELEASED SOON
-    private async getCredentials () {
+    async getCredentials (): Promise<Credentials> {
+        await this.page.waitForFunction('!!localStorage.getItem("pr_backend_type")')
         const localStorageData = await this.page.evaluate(() => {
             let data = {}
             Object.assign(data, window.localStorage)
             return data
         })
         const cookiz = await this.page.cookies()
-        return { cookies: cookiz, localStorage: localStorageData }
+        const creds: Credentials = {
+            cookies: cookiz,
+            localStorage: localStorageData
+        }
+        return creds
+    }
+
+    async setCredentials (credentials: Credentials) {
+        await this.page.setCookie(...credentials.cookies)
+        await this.page.evaluate((localStorageData) => {
+            try {
+                localStorageData = JSON.parse(localStorageData)
+            } catch (err) {}
+            for (const key of Object.keys(localStorageData)) {
+                localStorage.setItem(key, localStorageData[key])
+            }
+        }, JSON.stringify(credentials.localStorage))
+        await this.page.reload()
+        return
     }
 
     async quit() {
