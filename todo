@@ -1,3 +1,4 @@
 - add pagination in getInbox
 - add sendMessage in Service
+- add public method in client to save credentials to a file
 
