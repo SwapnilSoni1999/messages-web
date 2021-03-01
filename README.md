@@ -47,3 +47,21 @@ client.on('authenticated', async (service) => {
     await client.quit()
 })
 ```
+
+3. send message
+
+```js
+const MessagesClient = require('./messages-web')
+
+const credentials = MessagesClient.loadCredentialFile('credentials.json')
+const client = new MessagesClient({ credentials })
+
+client.on('authenticated', async (service) => {
+    console.log('Sending message...')
+    await service.sendMessage('+91987654321', 'Test message from SMS Client.') 
+    console.log('Done!')
+    await client.quit()
+})
+```
+
+**Note**: `sendMessage` takes first arg as number with `countryCode + Number` second arg as TextMessage
