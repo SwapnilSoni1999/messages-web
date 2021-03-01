@@ -2,3 +2,4 @@
 - add sendMessage in Service
 - add public method in client to save credentials to a file
 - sendMessage: parse to var to check if country code is included or not
+- Rewrite docs with proper details
