@@ -3,3 +3,5 @@
 - add public method in client to save credentials to a file
 - sendMessage: parse to var to check if country code is included or not
 - Rewrite docs with proper details
+- detect if phone is not connected
+- detect if web client is open in another browser or not

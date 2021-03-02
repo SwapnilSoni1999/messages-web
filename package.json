@@ -2,12 +2,20 @@
   "name": "messages-web",
   "version": "0.0.3",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/SwapniSoni1999/messages-web.git"
+  },
+  "types": "index.d.ts",
   "scripts": {
-    "dev": "nodemon index.ts"
+    "dev": "nodemon index.ts",
+    "prepare": "npm run build",
+    "prepublish": "tsc -p .",
+    "build": "tsc -p ."
   },
   "keywords": [],
-  "author": "",
+  "author": "Swapnil Soni <swapnil.soni12345@gmail.com>",
   "license": "ISC",
   "dependencies": {
     "puppeteer": "^8.0.0"
