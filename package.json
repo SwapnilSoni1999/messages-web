@@ -12,7 +12,8 @@
     "dev": "nodemon index.ts",
     "prepare": "npm run build",
     "prepublish": "tsc -p .",
-    "build": "tsc -p ."
+    "build": "tsc -p .",
+    "clean": "git clean -fX dist/"
   },
   "keywords": [],
   "author": "Swapnil Soni <swapnil.soni12345@gmail.com>",
