@@ -11,11 +11,16 @@
   "scripts": {
     "dev": "nodemon index.ts",
     "prepare": "npm run build",
-    "prepublish": "tsc -p .",
+    "prepublishOnly": "npm run clean && tsc -p .",
     "build": "tsc -p .",
     "clean": "git clean -fX dist/"
   },
-  "keywords": [],
+  "keywords": [
+    "sms-api",
+    "google messages api",
+    "sms gateway",
+    "puppeteer"
+  ],
   "author": "Swapnil Soni <swapnil.soni12345@gmail.com>",
   "license": "ISC",
   "dependencies": {
