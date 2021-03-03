@@ -30,6 +30,7 @@ export type Credentials = {
 class MessagesClient extends EventEmitter implements MessagesClient {
     private page!: puppeteer.Page
     private browser!: puppeteer.Browser
+    private isAuthenticated: boolean = false
 
     constructor (options: ClientOptions = { headless: true, credentials: { cookies: [], localStorage: {} } }) {
         super()
@@ -62,6 +63,7 @@ class MessagesClient extends EventEmitter implements MessagesClient {
             await this.setCredentials(options.credentials)
             const service = new MessageService(this.page)
             this.emit('authenticated', service)
+            this.isAuthenticated = true
         }
         try {
             const dontshowCheckbox = await this.page.$('#mat-checkbox-1')
@@ -78,7 +80,10 @@ class MessagesClient extends EventEmitter implements MessagesClient {
             const url = request.url()
             if (url.includes('Pairing/GetWebEncryptionKey')) {
                 const service = new MessageService(this.page)
-                this.emit('authenticated', service) // todo: pass credentials as well
+                if (!this.isAuthenticated) {
+                    this.emit('authenticated', service)
+                    this.isAuthenticated = true
+                }
             }
         })
     }
