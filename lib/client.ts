@@ -46,6 +46,7 @@ class MessagesClient extends EventEmitter implements MessagesClient {
         this.browser = browser
         const page = await browser.newPage()
         this.page = page
+        await this.page.setDefaultNavigationTimeout(0)
         await this.page.goto('https://messages.android.com', { waitUntil: 'load' })
         await this.page.waitForSelector('#mat-slide-toggle-1-input')
         await this.page.evaluate(() => {
@@ -126,6 +127,12 @@ class MessagesClient extends EventEmitter implements MessagesClient {
             localStorage: localStorageData
         }
         return creds
+    }
+
+    saveCredentials (filename: string) {
+        this.getCredentials().then((creds) => {
+            fs.writeFileSync(filename, JSON.stringify(creds, null, '\t'))
+        })
     }
 
     private async setCredentials (credentials: Credentials) {
