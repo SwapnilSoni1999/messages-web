@@ -66,6 +66,7 @@ class MessagesClient extends EventEmitter implements MessagesClient {
             this.isAuthenticated = true
         }
         try {
+            await this.page.waitForSelector('#mat-checkbox-1')
             const dontshowCheckbox = await this.page.$('#mat-checkbox-1')
             dontshowCheckbox.click()
             const dontShowBtn = await this.page.$('body > mw-app > mw-bootstrap > div > main > mw-main-container > div > mw-main-nav > div > mw-banner > div > mw-remember-this-computer-banner > div > div.button-align > button.action-button.confirm.mat-focus-indicator.mat-button.mat-button-base')

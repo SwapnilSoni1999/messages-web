@@ -78,10 +78,11 @@ class MessageService {
         //     console.log(input)
         // })
         // const numberInput = await page.$('#mat-chip-list-2 > div > input')
-        try {
-            await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
-        } catch (err) { }
+        // try {
+        //     await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
+        // } catch (err) { }
         // await page.waitForTimeout(2 * 1000) // remove lateer
+        await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
         let numberInput = await this.page.$x('//*[@id="mat-chip-list-0"]/div/input')
         // console.log('NumberInput', numberInput)
         if (numberInput.length) {
@@ -98,7 +99,7 @@ class MessageService {
         // await page.waitForTimeout(2 * 1000) // remove lateer
         let msgInput = await this.page.$x('/html/body/mw-app/mw-bootstrap/div/main/mw-main-container/div/mw-conversation-container/div[1]/div/mws-message-compose/div/div[2]/div/mws-autosize-textarea/textarea')
         // console.log('MsgINput', msgInput)
-        if (msgInput) {
+        if (msgInput.length) {
             await msgInput[0].type(text)
             await this.page.waitForXPath('/html/body/mw-app/mw-bootstrap/div/main/mw-main-container/div/mw-conversation-container/div[1]/div/mws-message-compose/div/div[2]/div/mws-message-send-button/button')
             let sendBtn = await this.page.$x('/html/body/mw-app/mw-bootstrap/div/main/mw-main-container/div/mw-conversation-container/div[1]/div/mws-message-compose/div/div[2]/div/mws-message-send-button/button')
