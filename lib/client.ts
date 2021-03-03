@@ -53,7 +53,6 @@ class MessagesClient extends EventEmitter implements MessagesClient {
             const checkbox = document.querySelector('#mat-slide-toggle-1-input') as HTMLInputElement
             checkbox.click() //remember me
         })
-        await this.page.waitForTimeout(2 * 1000) // wait for 2 sec to ensure rememberme clicked
         this.emit('browser-launched')
         if (!Object.keys(options.credentials.localStorage).length) {
             this.attachQrReader()

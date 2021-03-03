@@ -79,7 +79,7 @@ class MessageService {
         // })
         // const numberInput = await page.$('#mat-chip-list-2 > div > input')
         try {
-            await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
+            await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input', { timeout: 5000 })
         } catch (err) { }
         // await page.waitForTimeout(2 * 1000) // remove lateer
         // await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
@@ -104,6 +104,10 @@ class MessageService {
             await this.page.waitForXPath('/html/body/mw-app/mw-bootstrap/div/main/mw-main-container/div/mw-conversation-container/div[1]/div/mws-message-compose/div/div[2]/div/mws-message-send-button/button')
             let sendBtn = await this.page.$x('/html/body/mw-app/mw-bootstrap/div/main/mw-main-container/div/mw-conversation-container/div[1]/div/mws-message-compose/div/div[2]/div/mws-message-send-button/button')
             await sendBtn[0].click()
+        } else {
+            this.page.reload()
+            console.warn('retrying...')
+            this.sendMessage(to, text)
         }
         // TODO: return messageId
         return 
