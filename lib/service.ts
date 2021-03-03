@@ -20,7 +20,7 @@ class MessageService {
 
         const inbox = await this.page.evaluate(() => {
             function evalConvoElement (conversation: Element) {
-                const props:Conversation = {
+                const props: Conversation = {
                     unread: false, // querySelector find .unread class
                     id: 0, // href of a tag
                     timestamp: '', // mws-relative-timestamp .innerText || > ..ng-star-inserted').getAttribute('aria-label') if latest message
@@ -78,11 +78,11 @@ class MessageService {
         //     console.log(input)
         // })
         // const numberInput = await page.$('#mat-chip-list-2 > div > input')
-        // try {
-        //     await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
-        // } catch (err) { }
+        try {
+            await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
+        } catch (err) { }
         // await page.waitForTimeout(2 * 1000) // remove lateer
-        await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
+        // await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
         let numberInput = await this.page.$x('//*[@id="mat-chip-list-0"]/div/input')
         // console.log('NumberInput', numberInput)
         if (numberInput.length) {
