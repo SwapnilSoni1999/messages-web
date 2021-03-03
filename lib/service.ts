@@ -60,7 +60,13 @@ class MessageService {
     }
 
     async sendMessage (to: string, text: string) {
-        await this.page.waitForNavigation({ waitUntil: 'load' })
+        try {
+            await this.page.waitForNavigation({ waitUntil: 'domcontentloaded' })
+        } catch (err) {
+            // Empty loader attached for immediate requests
+            // if this function is called after few seconds/after after content loaded
+            // then its no issue else this will go in an exception because nothing is loading
+        }
         await this.page.waitForSelector('body > mw-app > mw-bootstrap > div > main > mw-main-container > div > mw-main-nav > mws-conversations-list > nav > div.conv-container.ng-star-inserted > mws-conversation-list-item')
 
         // TODO: parse to var to check if country code is included or not
