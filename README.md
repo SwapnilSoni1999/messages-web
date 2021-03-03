@@ -1,11 +1,11 @@
 # Google Messages Cli Client
 
 ### What is this?
-- this is a [https://messages.android.com](Google Messages) Client library to send message with a backend .eg. with express to send otp messages. This module uses your own number to work as a sms gateway api and you can send message to other person with your own number.
+- this is a [Google Messages](https://messages.android.com) Client library to send message with a backend .eg. with express to send otp messages. This module uses your own number to work as a sms gateway api and you can send message to other person with your own number.
 
 ### How to use
 
-1. install the package from [https://npmjs.com/package/messages-web](npm)
+1. install the package from [npm](https://npmjs.com/package/messages-web)
 
 ```sh
 npm install messages-web
@@ -16,7 +16,7 @@ npm install messages-web
 - Without credentials
 
 ```js
-const MessagesClient = require('messages-web')
+const { default: MessagesClient } = require('messages-web')
 const fs = require('fs')
 
 const client = new MessagesClient()
@@ -39,7 +39,7 @@ Then you can use `credentials.json` file to login
 - With credentials
 
 ```js
-const MessagesClient = require('messages-web')
+const { default: MessagesClient } = require('messages-web')
 
 const credentials = MessagesClient.loadCredentialFile('credentials.json')
 const client = new MessagesClient({ credentials })
@@ -54,7 +54,7 @@ client.on('authenticated', async (service) => {
 3. send message
 
 ```js
-const MessagesClient = require('messages-web')
+const { default: MessagesClient } = require('messages-web')
 
 const credentials = MessagesClient.loadCredentialFile('credentials.json')
 const client = new MessagesClient({ credentials })
@@ -69,7 +69,7 @@ client.on('authenticated', async (service) => {
 
 **Note**: `sendMessage` takes first arg as number with `countryCode + Number` second arg as TextMessage
 
-- Examples are given [https://github.com/SwapnilSoni1999/messages-web/tree/main/examples](here).
+- Examples are given [here](https://github.com/SwapnilSoni1999/messages-web/tree/main/examples).
 
 ### Todos
 - add pagination in getInbox
