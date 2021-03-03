@@ -16,7 +16,7 @@ npm install messages-web
 - Without credentials
 
 ```js
-const MessagesClient = require('messages-web')
+const { default: MessagesClient } = require('messages-web')
 const fs = require('fs')
 
 const client = new MessagesClient()
@@ -39,7 +39,7 @@ Then you can use `credentials.json` file to login
 - With credentials
 
 ```js
-const MessagesClient = require('messages-web')
+const { default: MessagesClient } = require('messages-web')
 
 const credentials = MessagesClient.loadCredentialFile('credentials.json')
 const client = new MessagesClient({ credentials })
@@ -54,7 +54,7 @@ client.on('authenticated', async (service) => {
 3. send message
 
 ```js
-const MessagesClient = require('messages-web')
+const { default: MessagesClient } = require('messages-web')
 
 const credentials = MessagesClient.loadCredentialFile('credentials.json')
 const client = new MessagesClient({ credentials })
