@@ -20,7 +20,7 @@ class MessageService {
 
         const inbox = await this.page.evaluate(() => {
             function evalConvoElement (conversation: Element) {
-                const props:Conversation = {
+                const props: Conversation = {
                     unread: false, // querySelector find .unread class
                     id: 0, // href of a tag
                     timestamp: '', // mws-relative-timestamp .innerText || > ..ng-star-inserted').getAttribute('aria-label') if latest message
@@ -60,7 +60,13 @@ class MessageService {
     }
 
     async sendMessage (to: string, text: string) {
-        await this.page.waitForNavigation({ waitUntil: 'load' })
+        try {
+            await this.page.waitForNavigation({ waitUntil: 'domcontentloaded' })
+        } catch (err) {
+            // Empty loader attached for immediate requests
+            // if this function is called after few seconds/after after content loaded
+            // then its no issue else this will go in an exception because nothing is loading
+        }
         await this.page.waitForSelector('body > mw-app > mw-bootstrap > div > main > mw-main-container > div > mw-main-nav > mws-conversations-list > nav > div.conv-container.ng-star-inserted > mws-conversation-list-item')
 
         // TODO: parse to var to check if country code is included or not
@@ -73,9 +79,10 @@ class MessageService {
         // })
         // const numberInput = await page.$('#mat-chip-list-2 > div > input')
         try {
-            await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
+            await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input', { timeout: 5000 })
         } catch (err) { }
         // await page.waitForTimeout(2 * 1000) // remove lateer
+        // await this.page.waitForXPath('//*[@id="mat-chip-list-0"]/div/input')
         let numberInput = await this.page.$x('//*[@id="mat-chip-list-0"]/div/input')
         // console.log('NumberInput', numberInput)
         if (numberInput.length) {
@@ -92,11 +99,15 @@ class MessageService {
         // await page.waitForTimeout(2 * 1000) // remove lateer
         let msgInput = await this.page.$x('/html/body/mw-app/mw-bootstrap/div/main/mw-main-container/div/mw-conversation-container/div[1]/div/mws-message-compose/div/div[2]/div/mws-autosize-textarea/textarea')
         // console.log('MsgINput', msgInput)
-        if (msgInput) {
+        if (msgInput.length) {
             await msgInput[0].type(text)
             await this.page.waitForXPath('/html/body/mw-app/mw-bootstrap/div/main/mw-main-container/div/mw-conversation-container/div[1]/div/mws-message-compose/div/div[2]/div/mws-message-send-button/button')
             let sendBtn = await this.page.$x('/html/body/mw-app/mw-bootstrap/div/main/mw-main-container/div/mw-conversation-container/div[1]/div/mws-message-compose/div/div[2]/div/mws-message-send-button/button')
             await sendBtn[0].click()
+        } else {
+            this.page.reload()
+            console.warn('retrying...')
+            this.sendMessage(to, text)
         }
         // TODO: return messageId
         return 

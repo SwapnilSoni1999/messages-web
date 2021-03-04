@@ -30,6 +30,7 @@ export type Credentials = {
 class MessagesClient extends EventEmitter implements MessagesClient {
     private page!: puppeteer.Page
     private browser!: puppeteer.Browser
+    private isAuthenticated: boolean = false
 
     constructor (options: ClientOptions = { headless: true, credentials: { cookies: [], localStorage: {} } }) {
         super()
@@ -61,6 +62,16 @@ class MessagesClient extends EventEmitter implements MessagesClient {
             await this.setCredentials(options.credentials)
             const service = new MessageService(this.page)
             this.emit('authenticated', service)
+            this.isAuthenticated = true
+        }
+        try {
+            await this.page.waitForSelector('#mat-checkbox-1')
+            const dontshowCheckbox = await this.page.$('#mat-checkbox-1')
+            dontshowCheckbox.click()
+            const dontShowBtn = await this.page.$('body > mw-app > mw-bootstrap > div > main > mw-main-container > div > mw-main-nav > div > mw-banner > div > mw-remember-this-computer-banner > div > div.button-align > button.action-button.confirm.mat-focus-indicator.mat-button.mat-button-base')
+            dontShowBtn.click()
+        } catch (err) {
+            // maybe button doesn't exist
         }
     }
 
@@ -69,7 +80,10 @@ class MessagesClient extends EventEmitter implements MessagesClient {
             const url = request.url()
             if (url.includes('Pairing/GetWebEncryptionKey')) {
                 const service = new MessageService(this.page)
-                this.emit('authenticated', service) // todo: pass credentials as well
+                if (!this.isAuthenticated) {
+                    this.emit('authenticated', service)
+                    this.isAuthenticated = true
+                }
             }
         })
     }
