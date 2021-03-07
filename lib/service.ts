@@ -13,12 +13,11 @@ class MessageService {
         this.page = page
     }
 
-    async getInbox() {
-        // TODO: add pagination
+    async getInbox(start=0, limit=-1) {
         await this.page.waitForNavigation({ waitUntil: 'load' })
         await this.page.waitForSelector('body > mw-app > mw-bootstrap > div > main > mw-main-container > div > mw-main-nav > mws-conversations-list > nav > div.conv-container.ng-star-inserted > mws-conversation-list-item')
 
-        const inbox = await this.page.evaluate(() => {
+        const inbox = await this.page.evaluate((start, limit) => {
             function evalConvoElement (conversation: Element) {
                 const props: Conversation = {
                     unread: false, // querySelector find .unread class
@@ -49,13 +48,20 @@ class MessageService {
 
             const conversations = document.querySelectorAll("body > mw-app > mw-bootstrap > div > main > mw-main-container > div > mw-main-nav > mws-conversations-list > nav > div.conv-container.ng-star-inserted > mws-conversation-list-item")
             const msgs = []
+            var i =0
             for (const conversation of conversations) {
                 if (conversation) {
-                    msgs.push(evalConvoElement(conversation))
+                    if(limit >= 0 && i>limit+start) {
+                        break
+                    }
+                    if(i>=start){
+                        msgs.push(evalConvoElement(conversation))
+                    }
+                    i++
                 }
             }
             return msgs
-        })
+        }, start, limit)
         return inbox
     }
 
