@@ -47,10 +47,10 @@ class MessagesClient extends EventEmitter implements MessagesClient {
         this.browser = browser
         const page = await browser.newPage()
         this.page = page
-        await this.page.goto('https://messages.android.com', { waitUntil: 'load' })
-        await this.page.waitForSelector('#mat-slide-toggle-1-input')
+        await this.page.goto('https://messages.android.com/web/authentication', { waitUntil: 'load' })
+        await this.page.waitForSelector('#mat-mdc-slide-toggle-1')
         await this.page.evaluate(() => {
-            const checkbox = document.querySelector('#mat-slide-toggle-1-input') as HTMLInputElement
+            const checkbox = document.querySelector('#mat-mdc-slide-toggle-1-button') as HTMLInputElement
             checkbox.click() //remember me
         })
         this.emit('browser-launched')
