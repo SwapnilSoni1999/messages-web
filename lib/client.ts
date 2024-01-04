@@ -1,164 +1,239 @@
-import { EventEmitter } from 'events'
-import puppeteer from 'puppeteer'
-import fs from 'fs'
+import { EventEmitter } from "events"
+import { Browser, Page } from "puppeteer"
+import puppeteer from "puppeteer-extra"
+import StealthPlugin from "puppeteer-extra-plugin-stealth"
+import TypedEmitter, { EventMap } from "typed-emitter"
+import config from "./config"
+import selectors from "./selectors"
+import MessageService from "./service"
+import { Protocol } from "puppeteer"
 
-import MessageService from './service'
-interface ClientEvents {
-    'authenticated': (service: MessageService) => void,
-    'browser-launched': () => void,
-    'qr-code': (base64Image: string) => void
-}
-declare interface MessagesClient {
-    on<U extends keyof ClientEvents>(
-      event: U, listener: ClientEvents[U]
-    ): this,
-  
-    emit<U extends keyof ClientEvents>(
-      event: U, ...args: Parameters<ClientEvents[U]>
-    ): boolean
+interface ClientEvents extends EventMap {
+  // authenticated: (service: MessageService) => void
+  authenticated: (service: MessageService) => void
+  credentials: (credentials: Credentials) => void
+  "browser-launched": () => void
+  "qr-code": (base64Image: string) => void
 }
 
 type ClientOptions = {
-    headless?: boolean,
-    credentials?: Credentials
+  headless?: boolean | "new"
+  credentials?: Credentials
 }
 
-export type Credentials = {
-    cookies: puppeteer.Protocol.Network.CookieParam[],
-    localStorage: object
+type Credentials = {
+  cookies: Protocol.Network.CookieParam[]
+  localStorage: Record<string, string>
+  sessionStorage: Record<string, string>
 }
-class MessagesClient extends EventEmitter implements MessagesClient {
-    private page!: puppeteer.Page
-    private browser!: puppeteer.Browser
-    private isAuthenticated: boolean = false
 
-    constructor (options: ClientOptions = { headless: true, credentials: { cookies: [], localStorage: {} } }) {
-        super()
-        this.launch(options)
+declare global {
+  interface Window {
+    onQrCodeChange: (base64Image: string) => void
+  }
+}
+
+class MessagesClient extends (EventEmitter as unknown as new () => TypedEmitter<ClientEvents>) {
+  private page!: Page
+  private browser!: Browser
+  private isAuthenticated: boolean = false
+
+  constructor(options: ClientOptions = { headless: "new" }) {
+    super()
+    this.launch(options)
+  }
+
+  private async launch(options: ClientOptions) {
+    const browser = await puppeteer.use(StealthPlugin()).launch({
+      headless: options.headless,
+      // devtools: true,
+      args: [
+        "--disable-web-security",
+        "--disable-features=IsolateOrigins,site-per-process",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--disable-gpu",
+        "--window-size=1920x1080",
+        "--start-maximized",
+      ],
+    })
+    this.browser = browser
+    this.page = await browser.newPage()
+
+    if (options.credentials) {
+      await this.restoreSession(options.credentials)
+      return
     }
 
-    static loadCredentialFile(path: string): Credentials {
-        const credentials: Credentials = JSON.parse(fs.readFileSync(path).toString())
-        return credentials
-    }
+    await this.page.goto(config.urls.auth, { waitUntil: "load" })
+    await this.checkRememberMe()
+    await this.attachQrCodeListener()
+    await this.attachAuthListener()
+  }
 
-    private async launch (options: ClientOptions) {
-        const browser = await puppeteer.launch({ headless: options.headless })
-        this.browser = browser
-        const page = await browser.newPage()
-        this.page = page
-        await this.page.goto('https://messages.google.com/web/authentication', { waitUntil: 'load' })
-        await this.page.waitForSelector('#mat-mdc-slide-toggle-1')
-        await this.page.evaluate(() => {
-            const checkbox = document.querySelector('#mat-mdc-slide-toggle-1-button') as HTMLInputElement
-            checkbox.click() //remember me
+  private async restoreSession(credentials: Credentials) {
+    await this.page.goto(config.urls.auth, { waitUntil: "load" })
+    await this.checkRememberMe()
+    await this.page.setCookie(...credentials.cookies)
+    await this.page.evaluate(
+      (
+        localStorageValues: Credentials["localStorage"],
+        sessionStorageValues: Credentials["sessionStorage"]
+      ) => {
+        Object.keys(localStorageValues).forEach((key) => {
+          window.localStorage.setItem(key, localStorageValues[key])
         })
-        this.emit('browser-launched')
-        if (!Object.keys(options.credentials.localStorage).length) {
-            this.attachQrReader()
-            this.attachReqTracer()
-            return
-        } else {
-            await this.setCredentials(options.credentials)
-            const service = new MessageService(this.page)
-            this.emit('authenticated', service)
-            this.isAuthenticated = true
+        Object.keys(sessionStorageValues).forEach((key) => {
+          window.sessionStorage.setItem(key, sessionStorageValues[key])
+        })
+      },
+      credentials.localStorage,
+      credentials.sessionStorage
+    )
+
+    await this.page.goto(config.urls.conversations, {
+      waitUntil: "domcontentloaded",
+    })
+    await this.page.waitForXPath(selectors.xpath.conversationList, {
+      visible: true,
+    })
+    this.isAuthenticated = true
+    console.log("Restored session!")
+
+    const service = new MessageService(this.page)
+    this.emit("authenticated", service)
+  }
+
+  private async attachAuthListener() {
+    this.page.on("framenavigated", async (frame) => {
+      const url = frame.url()
+      if (url.includes("/conversations")) {
+        console.log("Authenticated!")
+        this.isAuthenticated = true
+
+        const credentials: Credentials = {
+          cookies: await this.page.cookies(),
+          localStorage: await this.page.evaluate(() => {
+            const json = JSON.stringify(window.localStorage)
+            return JSON.parse(json)
+          }),
+          sessionStorage: await this.page.evaluate(() => {
+            const json = JSON.stringify(window.sessionStorage)
+            return JSON.parse(json)
+          }),
         }
-        try {
-            await this.page.waitForSelector('#mat-checkbox-1')
-            const dontshowCheckbox = await this.page.$('#mat-checkbox-1')
-            dontshowCheckbox.click()
-            const dontShowBtn = await this.page.$('body > mw-app > mw-bootstrap > div > main > mw-main-container > div > mw-main-nav > div > mw-banner > div > mw-remember-this-computer-banner > div > div.button-align > button.action-button.confirm.mat-focus-indicator.mat-button.mat-button-base')
-            dontShowBtn.click()
-        } catch (err) {
-            // maybe button doesn't exist
+
+        this.emit("credentials", credentials)
+
+        const service = new MessageService(this.page)
+        this.emit("authenticated", service)
+        this.page.removeAllListeners("framenavigated")
+      }
+    })
+  }
+
+  private async checkRememberMe() {
+    const rememberMeSlider = await this.page.waitForXPath(
+      selectors.xpath.rememberMeSlider,
+      {
+        visible: true,
+      }
+    )
+
+    if (!rememberMeSlider) {
+      throw new Error("Could not find remember me slider")
+    }
+
+    const sliderBtn = await this.page.waitForXPath(
+      selectors.xpath.rmemberMeSliderButton
+    )
+
+    const className =
+      ((await (
+        await sliderBtn?.getProperty("className")
+      )?.jsonValue()) as string) ?? ""
+
+    const isChecked = className.includes("checked")
+
+    if (!isChecked && sliderBtn) {
+      await (await sliderBtn.toElement("button")).click()
+      console.log("Checked remember me!")
+    }
+  }
+
+  private async attachQrCodeListener() {
+    await this.page.exposeFunction("onQrCodeChange", (base64Image: string) => {
+      console.log("QR Code changed!")
+      console.log({ base64Image })
+      this.emit("qr-code", base64Image)
+    })
+
+    await this.page.waitForXPath(selectors.xpath.qrCode, { visible: true })
+
+    await this.page.evaluate((qrCodeXpath) => {
+      function getElementByXPath(xpath: string) {
+        const snapshots = document.evaluate(
+          xpath,
+          document,
+          null,
+          XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+          null
+        )
+
+        const results: Element[] = []
+
+        for (let i = 0; i < snapshots.snapshotLength; i++) {
+          results.push(snapshots.snapshotItem(i) as Element)
         }
-    }
 
-    private async attachReqTracer () {
-        this.page.on('request', request => {
-            const url = request.url()
-            if (url.includes('Pairing/GetWebEncryptionKey')) {
-                const service = new MessageService(this.page)
-                if (!this.isAuthenticated) {
-                    this.emit('authenticated', service)
-                    this.isAuthenticated = true
-                }
-            }
-        })
-    }
+        return results
+      }
 
-    private async attachQrReader () {
-        await this.page.waitForSelector("body > mw-app > mw-bootstrap > div > main > mw-authentication-container > div > div.content-container > div > div.qr-code-container > div.qr-code-wrapper > mw-qr-code")
-        await this.page.exposeFunction('onQrChange', async () => {
-            const img = await this.page.$('body > mw-app > mw-bootstrap > div > main > mw-authentication-container > div > div.content-container > div > div.qr-code-container > div.qr-code-wrapper > mw-qr-code > img')
-            if (img) {
-                const src = await img.getProperty('src')
-                if (src) {
-                    this.emit('qr-code', await src.jsonValue()) // qrData = base64 qr image
-                }
-            }
-        })
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          console.log({ mutation })
 
-        await this.page.evaluate(() => {
-            const observer = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                    if (mutation.attributeName === 'data-qr-code') {
-                        // @ts-ignore
-                        window.onQrChange(mutation)
-                    }
-                }
-            })
-            const img = document.querySelector("body > mw-app > mw-bootstrap > div > main > mw-authentication-container > div > div.content-container > div > div.qr-code-container > div.qr-code-wrapper > mw-qr-code")
-            if (img) {
-                observer.observe(img, { attributes: true, childList: true, characterData: true })
+          mutation.addedNodes.forEach((node) => {
+            if (node instanceof HTMLImageElement) {
+              console.log("QR Code changed!")
+              node.onload = () => {
+                console.log({ src: node.src })
+                console.log({ src: node.getAttribute("src") })
+                window.onQrCodeChange(node.src)
+              }
             }
-            return observer
-        })
+          })
 
-        await this.page.waitForSelector('body > mw-app > mw-bootstrap > div > main > mw-authentication-container > div > div.content-container > div > div.qr-code-container > div.qr-code-wrapper > mw-qr-code > img')
-        const img = await this.page.$('body > mw-app > mw-bootstrap > div > main > mw-authentication-container > div > div.content-container > div > div.qr-code-container > div.qr-code-wrapper > mw-qr-code > img')
-        if (img) {
-            const src = await img.getProperty('src')
-            if (src) {
-                this.emit('qr-code', await src.jsonValue())
-            }
+          //   if (mutation.attributeName === "data-qr-code") {
+          //     // const base64Image = mutation.target
+          //     // window.onQrCodeChange(base64Image)
+          //     console.log("QR Code changed!")
+          //     const qrElement = mutation.target as Element
+          //     const img = qrElement.querySelector("img")
+          //     console.log(img)
+          //     if (img) {
+          //       const base64Image = img.getAttribute("src")
+          //       window.onQrCodeChange(base64Image ?? "")
+          //     }
+          //   }
         }
-    }
-    
-    // WILL BE RELEASED SOON
-    async getCredentials (): Promise<Credentials> {
-        await this.page.waitForFunction('!!localStorage.getItem("pr_backend_type")')
-        const localStorageData = await this.page.evaluate(() => {
-            let data = {}
-            Object.assign(data, window.localStorage)
-            return data
+      })
+
+      const qrCode = getElementByXPath(qrCodeXpath)[0]
+      console.log({ qrCode })
+      if (qrCode) {
+        observer.observe(qrCode, {
+          attributes: true,
+          childList: true,
+          characterData: true,
         })
-        const cookiz = await this.page.cookies()
-        const creds: Credentials = {
-            cookies: cookiz,
-            localStorage: localStorageData
-        }
-        return creds
-    }
+      }
 
-    private async setCredentials (credentials: Credentials) {
-        await this.page.setCookie(...credentials.cookies)
-        await this.page.evaluate((localStorageData) => {
-            try {
-                localStorageData = JSON.parse(localStorageData)
-            } catch (err) {}
-            for (const key of Object.keys(localStorageData)) {
-                localStorage.setItem(key, localStorageData[key])
-            }
-        }, JSON.stringify(credentials.localStorage))
-        await this.page.reload()
-        return
-    }
-
-    async quit() {
-        await this.browser.close()
-    }
+      return observer
+    }, selectors.xpath.qrCode)
+  }
 }
 
 export default MessagesClient
