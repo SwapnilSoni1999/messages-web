@@ -11,5 +11,6 @@ export default {
     contactSelectorBtn: "//mw-contact-selector-button//button",
     typeTextarea: "//textarea",
     sendMessageBtn: "//mws-message-send-button//button[not(@disabled)]",
+    statusMessage: "//mws-message-status",
   },
 }

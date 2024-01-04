@@ -6,25 +6,17 @@ import TypedEmitter, { EventMap } from "typed-emitter"
 import config from "./config"
 import selectors from "./selectors"
 import MessageService from "./service"
-import { Protocol } from "puppeteer"
+import path from "path"
+import { homedir } from "os"
 
 interface ClientEvents extends EventMap {
-  // authenticated: (service: MessageService) => void
   authenticated: (service: MessageService) => void
-  credentials: (credentials: Credentials) => void
   "browser-launched": () => void
   "qr-code": (base64Image: string) => void
 }
 
 type ClientOptions = {
   headless?: boolean | "new"
-  credentials?: Credentials
-}
-
-type Credentials = {
-  cookies: Protocol.Network.CookieParam[]
-  localStorage: Record<string, string>
-  sessionStorage: Record<string, string>
 }
 
 declare global {
@@ -45,6 +37,7 @@ class MessagesClient extends (EventEmitter as unknown as new () => TypedEmitter<
 
   private async launch(options: ClientOptions) {
     const browser = await puppeteer.use(StealthPlugin()).launch({
+      userDataDir: path.join(homedir(), ".messages-web"),
       headless: options.headless,
       // devtools: true,
       args: [
@@ -62,48 +55,34 @@ class MessagesClient extends (EventEmitter as unknown as new () => TypedEmitter<
     this.browser = browser
     this.page = await browser.newPage()
 
-    if (options.credentials) {
-      await this.restoreSession(options.credentials)
+    const hasExistingAuth = await this.checkExistingAuth()
+    if (hasExistingAuth) {
       return
     }
-
     await this.page.goto(config.urls.auth, { waitUntil: "load" })
     await this.checkRememberMe()
     await this.attachQrCodeListener()
     await this.attachAuthListener()
   }
 
-  private async restoreSession(credentials: Credentials) {
-    await this.page.goto(config.urls.auth, { waitUntil: "load" })
-    await this.checkRememberMe()
-    await this.page.setCookie(...credentials.cookies)
-    await this.page.evaluate(
-      (
-        localStorageValues: Credentials["localStorage"],
-        sessionStorageValues: Credentials["sessionStorage"]
-      ) => {
-        Object.keys(localStorageValues).forEach((key) => {
-          window.localStorage.setItem(key, localStorageValues[key])
-        })
-        Object.keys(sessionStorageValues).forEach((key) => {
-          window.sessionStorage.setItem(key, sessionStorageValues[key])
-        })
-      },
-      credentials.localStorage,
-      credentials.sessionStorage
-    )
+  private async checkExistingAuth() {
+    try {
+      await this.page.goto(config.urls.conversations, {
+        waitUntil: "domcontentloaded",
+      })
+      await this.page.waitForXPath(selectors.xpath.conversationList, {
+        visible: true,
+      })
+      this.isAuthenticated = true
+      console.log("Restored session!")
 
-    await this.page.goto(config.urls.conversations, {
-      waitUntil: "domcontentloaded",
-    })
-    await this.page.waitForXPath(selectors.xpath.conversationList, {
-      visible: true,
-    })
-    this.isAuthenticated = true
-    console.log("Restored session!")
-
-    const service = new MessageService(this.page)
-    this.emit("authenticated", service)
+      const service = new MessageService(this.page)
+      this.emit("authenticated", service)
+      return true
+    } catch (err) {
+      console.log("No existing session found!")
+      return false
+    }
   }
 
   private async attachAuthListener() {
@@ -112,20 +91,6 @@ class MessagesClient extends (EventEmitter as unknown as new () => TypedEmitter<
       if (url.includes("/conversations")) {
         console.log("Authenticated!")
         this.isAuthenticated = true
-
-        const credentials: Credentials = {
-          cookies: await this.page.cookies(),
-          localStorage: await this.page.evaluate(() => {
-            const json = JSON.stringify(window.localStorage)
-            return JSON.parse(json)
-          }),
-          sessionStorage: await this.page.evaluate(() => {
-            const json = JSON.stringify(window.sessionStorage)
-            return JSON.parse(json)
-          }),
-        }
-
-        this.emit("credentials", credentials)
 
         const service = new MessageService(this.page)
         this.emit("authenticated", service)

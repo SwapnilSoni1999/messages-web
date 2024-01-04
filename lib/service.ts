@@ -95,6 +95,23 @@ class MessageService {
     // await this.page.mouse.click(point.x, point.y, { delay: 100 })
 
     console.log("Message sent!")
+
+    let statusMessage: string = ""
+    const statusMessageWrapper = await this.page
+      .waitForXPath(selectors.xpath.statusMessage)
+      .catch((err) => {
+        console.log(err)
+        return null
+      })
+    if (statusMessageWrapper) {
+      const _statusMessage = await statusMessageWrapper.getProperty("innerText")
+      console.log(statusMessage)
+      statusMessage = (await _statusMessage?.jsonValue()) as string
+    }
+
+    return {
+      statusMessage,
+    }
   }
 }
 
